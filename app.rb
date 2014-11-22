@@ -1115,35 +1115,11 @@ end
 # Doing this in a centralized way offers us the ability to exploit
 # Redis pipelining.
 def get_news_by_id(news_ids,opt={})
-  news_type(News.find news_ids, update_rank: opt[:update_rank], user_id: ($user ? $user.id : nil))
+  News.find news_ids, update_rank: opt[:update_rank], user_id: ($user ? $user.id : nil)
 end
 
 def get_news_by_id_with_type(news_ids,opt={})
-    news_type(get_news_by_id(news_ids,opt={}))
-end
-
-def media_types
-  [:image, :video]
-end
-
-def validate_image url
-  url.end_with? '.jpg', '.jpeg', '.png'
-end
-
-def validate_video url
-  url =~ /(youtube|vimeo)/
-end
-
-def media_type url
-  media_types.each do |mt|
-    return mt if send("validate_#{mt}", url)
-  end
-  :url
-end
-
-def news_type news
-  [*news].each { |item| item.type = media_type(item.url) }
-  news
+  news_type(get_news_by_id(news_ids,opt={}))
 end
 
 # Vote the specified news in the context of a given user.
