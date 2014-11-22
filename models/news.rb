@@ -1,6 +1,6 @@
 class News
   attr_accessor :id, :title, :url, :user_id, :ctime, :score, :rank, :up, :down,
-                :comments, :category_id, :del
+                :comments, :category_id, :del, :type
   attr_writer :user_email
   attr_accessor :voted
 
@@ -42,7 +42,8 @@ class News
       "category_id" => category_id,
       "del" => del,
       "user_email" => user_email,
-      "voted" => voted
+      "voted" => voted,
+      "type" => type
     }
   end
 
@@ -123,6 +124,7 @@ class News
     end
     fill_users_in_collection(news)
     fill_voted_info_in_collection(news, opts[:user_id]) if opts[:user_id]
+    fill_news_media_type(news)
     ids.is_a?(Array) && news || news.first
   end
 
@@ -245,5 +247,29 @@ class News
         n.voted = :down
       end
     end
+  end
+
+  def self.media_types
+    [:image, :video]
+  end
+
+  def self.media_type url
+    media_types.each do |mt|
+      return mt if send("validate_#{mt}", url)
+    end
+    :url
+  end
+
+  def self.validate_image url
+    url.end_with? '.jpg', '.jpeg', '.png'
+  end
+
+  def self.validate_video url
+    url =~ /(youtube|vimeo)/
+  end
+
+  def self.fill_news_media_type news
+    [*news].each { |item| item.type = media_type(item.url) }
+    news
   end
 end

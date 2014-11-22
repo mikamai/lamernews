@@ -1119,34 +1119,7 @@ def get_news_by_id(news_ids,opt={})
 end
 
 def get_news_by_id_with_type(news_ids,opt={})
-    news_type(get_news_by_id(news_ids,opt={}))
-end
-
-def media_types
-  [:image, :video]
-end
-
-def validate_image url
-  url.end_with? '.jpg', '.jpeg', '.png'
-end
-
-def validate_video url
-  url =~ /(youtube|vimeo)/
-end
-
-def media_type url
-  media_types.each do |mt|
-    return mt if send("validate_#{mt}", url)
-  end
-  :url
-end
-
-def news_type news
-  result = [*news].map do |item|
-    item['type'] = media_type(item['url'])
-    item
-  end
-  return (news.is_a? Array) ? result : result.first
+  news_type(get_news_by_id(news_ids,opt={}))
 end
 
 # Vote the specified news in the context of a given user.
