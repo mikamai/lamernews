@@ -276,7 +276,17 @@ var preview = function () {
   }
 }
 
+var bindSubmitInputEvents = function() {
+  $('#url').on('keyup', function() {
+    $('#text').prop('disabled', $(this).val().length > 0);
+  });
+  $('#text').on('keyup', function() {
+    $('#url').prop('disabled', $(this).val().length > 0);
+  });
+}
+
 $(function() {
+  bindSubmitInputEvents();
   $('#newslist article').each(function() {
     var articleHref = $(this).find('h2 a').attr('href');
     var articleType = $(this).attr('data-type');
