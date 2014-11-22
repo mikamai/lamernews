@@ -766,10 +766,27 @@ get  '/api/getnews/:sort/:start/:count' do
     getfunc = method((sort == :latest) ? :get_latest_news : :get_top_news)
     news,numitems = getfunc.call(start,count)
     news.each{|n|
-        n['domain'] = news_domain(n)
         ['rank','score','user_id'].each{|field| n.delete(field)}
     }
     return { :status => "ok", :news => news, :count => numitems }.to_json
+end
+
+get  '/api/getnews-infinite/:sort/:start/:count' do
+    sort = params[:sort].to_sym
+    start = params[:start].to_i
+    count = params[:count].to_i
+    if not [:latest,:top].index(sort)
+        return {:status => "err", :error => "Invalid sort parameter"}.to_json
+    end
+    return {:status => "err", :error => "Count is too big"}.to_json if count > APIMaxNewsCount
+
+    start = 0 if start < 0
+    getfunc = method((sort == :latest) ? :get_latest_news : :get_top_news)
+    news,numitems = getfunc.call(start,count)
+    news.each{|n|
+        ['rank','score','user_id'].each{|field| n.delete(field)}
+    }
+    return { :status => "ok", :news => multiple_news_to_html(news), :count => numitems }.to_json
 end
 
 get  '/api/getcomments/:news_id' do
@@ -1442,6 +1459,13 @@ def news_to_html(news)
             "zset_rank: "+$r.zscore("news.top",news["id"]).to_s
         else "" end
     }+"\n"
+end
+
+# Rerturns the html for a list of news
+def multiple_news_to_html news
+    news.inject("") do |items, item|
+        items + news_to_html(item)
+    end
 end
 
 # If 'news' is a list of news entries (Ruby hashes with the same fields of
