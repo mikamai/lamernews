@@ -57,8 +57,8 @@ class News
 
   def update new_title, new_url
     if new_url != url
+      $r.del "url:#{url}"
       self.url = new_url
-      $r.del "url:#{new_url}"
       $r.setex "url:#{new_url}", PreventRepostTime, id unless textual?
     end
     self.title = new_title
@@ -70,6 +70,10 @@ class News
     $r.hmset "news:#{id}", "del", 1
     $r.zrem "news.top", id
     $r.zrem "news.cron", id
+    if category_id
+      $r.zrem "news.top.by_category:#{category_id}", id
+      $r.zrem "news.cron.by_category:#{category_id}", id
+    end
     true
   end
 

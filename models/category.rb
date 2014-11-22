@@ -32,6 +32,6 @@ class Category
       "id",   id,
       "code", code
     $r.set "category_codes.to.id:#{code}", id
-    new
+    new id: id, code: code
   end
 end
