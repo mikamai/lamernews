@@ -781,17 +781,17 @@ get  '/infinite/:sort/:start/:count' do
 
     start = 0 if start < 0
     getfunc = method((sort == :latest) ? :get_latest_news : :get_top_news)
-    news,numitems = getfunc.call(start,count)
     paginate = {
-        :get => news,
+        :get => Proc.new {|start,count|
+            getfunc.call(start,count)
+        },
         :render => Proc.new {|item| news_to_html(item)},
         :start => start,
-        :perpage => LatestNewsPerPage,
+        :perpage => count,
         :link => "/latest/$"
     }
     list_items(paginate)
-    exit
-    return { :status => "ok", :news => list_items(paginate), :count => numitems }.to_json
+    return { :status => "ok", :news => list_items(paginate) }.to_json
 end
 
 get  '/api/getcomments/:news_id' do
