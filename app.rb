@@ -1275,6 +1275,10 @@ def news_to_html(news)
             if domain
                 "at "+H.entities(domain)
             else "" end +
+            if news['category_id'] && (category = Category.find(news['category_id']))
+              category_code = category.code
+              H.a(href: "/f/#{category_code}") { category_code }
+            else "" end +
             if ($user and $user.id.to_i == news['user_id'].to_i and
                 news['ctime'].to_i > (Time.now.to_i - NewsEditTime))
                 " " + H.a(:href => "/editnews/#{news["id"]}") {
@@ -1353,7 +1357,7 @@ def get_top_news(start=0,count=TopNewsPerPage)
     news_ids = $r.zrevrange("news.top",start,start+(count-1))
     result = get_news_by_id(news_ids,:update_rank => true)
     # Sort by rank before returning, since we adjusted ranks during iteration.
-    return result.sort{|a,b| b["rank"].to_f <=> a["rank"].to_f},numitems
+    return result.sort_by(&:rank), numitems
 end
 
 # Get news in chronological order.
