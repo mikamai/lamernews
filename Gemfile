@@ -13,6 +13,8 @@ gem 'ruby-hmac'
 gem 'omniauth'
 gem 'omniauth-google-oauth2'
 
+gem 'puma'
+
 group :development, :test do
   gem 'rake'
   gem 'rspec'

@@ -64,3 +64,8 @@ WORKDIR /app
 RUN bundle install --without test development
 
 EXPOSE 9292
+
+ENV RACK_ENV production
+ENV LN_REDIS_URL redis://redis:6379
+
+CMD ["bundle", "exec", "rackup"]
