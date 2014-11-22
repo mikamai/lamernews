@@ -305,3 +305,34 @@ var bindPreviewEvents = function(article) {
     $articlePreview.toggleClass('open');
   });
 }
+
+// Infinite scrolling-like behaviour on
+// latest news page
+$(function() {
+  $('#newslist .more').on('click', function(event) {
+    event.preventDefault();
+    var newsPerPage = $('body').attr('data-news-per-page')
+    $.get("/api/getnews/latest/" + newsPerPage + "/" + newsPerPage)
+    .done(function(data) {
+      buildArticles(data);
+    });
+  });
+});
+
+var buildArticles = function(data) {
+  for (i in data.news) {
+    var news = data.news[i];
+    var article = "" +
+    "<article data-news-id='" + news.id + "' data-type='" + news.type + "'>" +
+      "<a href='#up' class='uparrow voted'>▲</a>" +
+      "<h2><a href='/news/" + news.id + "' rel='nofollow'>" + news.title + "</a></h2>" +
+      "<address></address>" +
+      "<a href='#down' class='downarrow disabled'>▼</a>" +
+      "<p>" +
+        "<span class='upvotes'>" + news.up + "</span> up and <span class='downvotes'>" + news.down + "</span> down, posted by <username><a href='" + news.username + "'>" + news.username + "</a></username>" + news.ctime + "<a href='/news/" + news.id + "'>discuss</a>" +
+      "</p>" +
+    "</article>";
+
+    $('#newslist').append(article);
+  }
+}
