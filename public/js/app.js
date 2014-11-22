@@ -277,10 +277,10 @@ var preview = function () {
 }
 
 var bindSubmitInputEvents = function() {
-  $('#url').on('change', function() {
+  $('#url').on('keyup', function() {
     $('#text').prop('disabled', $(this).val().length > 0);
   });
-  $('#text').on('change', function() {
+  $('#text').on('keyup', function() {
     $('#url').prop('disabled', $(this).val().length > 0);
   });
 }
