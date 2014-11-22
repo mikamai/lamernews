@@ -316,3 +316,32 @@ var bindPreviewEvents = function(article) {
     $articlePreview.toggleClass('open');
   });
 }
+
+// Infinite pagination on
+// latest news page
+$(function() {
+  var newsPerPage = Number($('body').attr('data-news-per-page'));
+
+  $(document).on('click', '#newslist .more', function(event) {
+    event.preventDefault();
+    var $moreBtn   = $(this);
+    var lowerLimit = getLowerLimit($moreBtn);
+
+    $.get("/infinite/latest/" + lowerLimit + "/" + newsPerPage)
+    .done(function(data) {
+      var data    = JSON.parse(data);
+      lowerLimit += newsPerPage;
+      appendNews($moreBtn, data);
+    });
+  });
+});
+
+
+var appendNews = function(button, data) {
+  button.remove();
+  $('article:last').after(data.news);
+}
+
+var getLowerLimit = function(button) {
+  return Number(button.attr('href').split('/').pop());
+}

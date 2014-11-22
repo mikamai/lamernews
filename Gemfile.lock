@@ -63,6 +63,8 @@ GEM
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
       slop (~> 3.4)
+    puma (2.9.2)
+      rack (>= 1.1, < 2.0)
     rack (1.5.2)
     rack-protection (1.5.3)
       rack
@@ -122,6 +124,7 @@ DEPENDENCIES
   omniauth
   omniauth-google-oauth2
   pry
+  puma
   rack-test
   rails_config!
   rake

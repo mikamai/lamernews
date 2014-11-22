@@ -156,6 +156,7 @@ get '/latest/:start' do
         :link => "/latest/$"
     }
     H.page {
+        H.body("data-news-per-page" => LatestNewsPerPage)+
         H.h2 {"Latest news"}+
         H.section(:id => "newslist") {
             list_items(paginate)
@@ -828,6 +829,29 @@ get  '/api/getnews/:sort/:start/:count' do
     return { :status => "ok", :news => news, :count => numitems }.to_json
 end
 
+get  '/infinite/:sort/:start/:count' do
+    sort = params[:sort].to_sym
+    start = params[:start].to_i
+    count = params[:count].to_i
+    if not [:latest,:top].index(sort)
+        return {:status => "err", :error => "Invalid sort parameter"}.to_json
+    end
+
+    start = 0 if start < 0
+    getfunc = method((sort == :latest) ? :get_latest_news : :get_top_news)
+    paginate = {
+        :get => Proc.new {|start,count|
+            getfunc.call(start,count)
+        },
+        :render => Proc.new {|item| news_to_html(item)},
+        :start => start,
+        :perpage => count,
+        :link => "/latest/$"
+    }
+    list_items(paginate)
+    return { :status => "ok", :news => list_items(paginate) }.to_json
+end
+
 get  '/api/getcomments/:news_id' do
     content_type 'application/json'
     return {
@@ -1318,6 +1342,13 @@ def news_to_html(news)
     }+"\n"
 end
 
+# Rerturns the html for a list of news
+def multiple_news_to_html news
+    news.inject("") do |items, item|
+        items + news_to_html(item)
+    end
+end
+
 # If 'news' is a list of news entries (Ruby hashes with the same fields of
 # the Redis hash representing the news in the DB) this function will render
 # the RSS needed to show this news.
@@ -1677,5 +1708,5 @@ def list_items(o)
 end
 
 use OmniAuth::Builder do
-  provider :google_oauth2, Settings.oauth2.google.key, Settings.oauth2.google.secret, {}
+  provider :google_oauth2, ENV['GOOGLE_OAUTH2_KEY'], ENV['GOOGLE_OAUTH2_SECRET'], {}
 end

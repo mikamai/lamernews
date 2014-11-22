@@ -13,7 +13,7 @@ web:
 
 app:
   image: quay.io/mikamai/lamernews
-  command: bundle exec rackup
+  command: bundle exec puma
   volumes:
     - /app:/app
   working_dir: /app
