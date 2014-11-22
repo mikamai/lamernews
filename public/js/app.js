@@ -315,7 +315,7 @@ $(function() {
     $.get("/api/getnews-infinite/latest/function" + newsPerPage + "/" + newsPerPage)
     .done(function(data) {
       var data = JSON.parse(data);
-      $('#newslist').append(data.news);
+      $('article:last').after(data.news);
     });
   });
 });
