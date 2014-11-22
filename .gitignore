@@ -4,3 +4,4 @@ redis-*/
 .vagrant
 .bundle/config
 vendor/remote_gems
+config/settings.local.yml
