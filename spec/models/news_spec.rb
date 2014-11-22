@@ -111,4 +111,39 @@ describe News do
       expect($r.hget "news:#{subject.id}", "url").to eq "http://bar.baz"
     end
   end
+
+  describe '#destroy' do
+    let!(:user) { User.find_or_create 'a', 'a@a.it' }
+    let!(:category) { Category.create 'mikamai' }
+    subject { News.create 'asd', 'http://foo.bar', user, category }
+
+    it "sets the del attribute on redis" do
+      subject.destroy
+      expect($r.hget "news:#{subject.id}", "del").to eq "1"
+    end
+
+    it "removes the news from main top listing" do
+      subject.destroy
+      expect($r.zrevrange "news.top", 0, -1).to_not include subject.id.to_s
+    end
+
+    it "removes the news from main cron listing" do
+      subject.destroy
+      expect($r.zrevrange "news.cron", 0, -1).to_not include subject.id.to_s
+    end
+
+    context 'if news is in a category' do
+      it "removes the news from category top listing" do
+        subject.destroy
+        listing = $r.zrevrange "news.top.by_category:#{subject.category_id}", 0, -1
+        expect(listing).to_not include subject.id.to_s
+      end
+
+      it "removes the news from category cron listing" do
+        subject.destroy
+        listing = $r.zrevrange "news.cron.by_category:#{subject.category_id}", 0, -1
+        expect(listing).to_not include subject.id.to_s
+      end
+    end
+  end
 end

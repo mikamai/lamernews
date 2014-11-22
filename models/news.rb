@@ -70,6 +70,10 @@ class News
     $r.hmset "news:#{id}", "del", 1
     $r.zrem "news.top", id
     $r.zrem "news.cron", id
+    if category_id
+      $r.zrem "news.top.by_category:#{category_id}", id
+      $r.zrem "news.cron.by_category:#{category_id}", id
+    end
     true
   end
 
