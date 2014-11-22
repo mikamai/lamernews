@@ -56,7 +56,7 @@ RUN echo 'gem: --no-rdoc --no-ri' >> $HOME/.gemrc
 RUN gem install bundler
 RUN bundle config path /app/vendor/remote_gems
 
-ENV LN_RELEASE 976d7
+ENV LN_RELEASE 71561
 RUN git clone https://github.com/mikamai/lamernews.git /app
 
 WORKDIR /app
