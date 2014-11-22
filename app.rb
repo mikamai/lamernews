@@ -127,6 +127,7 @@ get '/latest/:start' do
         :link => "/latest/$"
     }
     H.page {
+        H.body("data-news-per-page" => LatestNewsPerPage)+
         H.h2 {"Latest news"}+
         H.section(:id => "newslist") {
             list_items(paginate)
@@ -768,6 +769,29 @@ get  '/api/getnews/:sort/:start/:count' do
         ['rank','score','user_id'].each{|field| n.delete(field)}
     }
     return { :status => "ok", :news => news, :count => numitems }.to_json
+end
+
+get  '/infinite/:sort/:start/:count' do
+    sort = params[:sort].to_sym
+    start = params[:start].to_i
+    count = params[:count].to_i
+    if not [:latest,:top].index(sort)
+        return {:status => "err", :error => "Invalid sort parameter"}.to_json
+    end
+
+    start = 0 if start < 0
+    getfunc = method((sort == :latest) ? :get_latest_news : :get_top_news)
+    paginate = {
+        :get => Proc.new {|start,count|
+            getfunc.call(start,count)
+        },
+        :render => Proc.new {|item| news_to_html(item)},
+        :start => start,
+        :perpage => count,
+        :link => "/latest/$"
+    }
+    list_items(paginate)
+    return { :status => "ok", :news => list_items(paginate) }.to_json
 end
 
 get  '/api/getcomments/:news_id' do
@@ -1440,6 +1464,13 @@ def news_to_html(news)
             "zset_rank: "+$r.zscore("news.top",news["id"]).to_s
         else "" end
     }+"\n"
+end
+
+# Rerturns the html for a list of news
+def multiple_news_to_html news
+    news.inject("") do |items, item|
+        items + news_to_html(item)
+    end
 end
 
 # If 'news' is a list of news entries (Ruby hashes with the same fields of
