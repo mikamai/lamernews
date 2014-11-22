@@ -27,7 +27,6 @@
 
 require 'rails_config'
 require_relative 'app_config'
-require_relative 'models/user'
 require 'rubygems'
 require 'hiredis'
 require 'redis'
@@ -35,6 +34,8 @@ require_relative 'page'
 require 'sinatra'
 require 'sinatra/contrib'
 require "sinatra/reloader" if development?
+require_relative 'models/user'
+require_relative 'models/category'
 require 'json'
 require 'digest/sha1'
 require 'digest/md5'
@@ -89,6 +90,31 @@ get '/' do
     H.page {
         H.h2 {"Top news"}+news_list_to_html(news)
     }
+end
+
+get '/f/:category' do
+  category = Category.find_by_code params[:category]
+  if category
+    H.set_title "#{SiteName} - #{category.code}"
+    H.page {
+      H.p { "You are in category #{category.code}" }
+    }
+  elsif $user
+    if params[:create] == '1'
+      Category.create params[:category]
+      redirect "/f/#{params[:category]}"
+    else
+      H.set_title "#{SiteName} - #{SiteDescription}"
+      H.page {
+        H.h2 {
+          "The category #{params[:category]} does not exist. " +
+          H.a(href: "/f/#{params[:category]}?create=1") { "Would you like to create it ?" }
+        }
+      }
+    end
+  else
+    halt(404, "The category you are searching does not exist")
+  end
 end
 
 get '/rss' do

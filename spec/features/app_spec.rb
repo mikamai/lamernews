@@ -48,6 +48,46 @@ describe 'Lamer News' do
     end
   end
 
+  describe '/f/:category' do
+    context 'when requested category does not exist' do
+      context 'and user is not logged' do
+        it 'returns a 404' do
+          get '/f/mikamai'
+          expect(last_response.status).to eq 404
+        end
+      end
+
+      context 'and user is logged' do
+        before do
+          u = User.create 'a', 'a@a.it'
+          set_cookie "auth=#{u.auth}"
+        end
+
+        it 'returns a message saing the category does not exist' do
+          get '/f/mikamai'
+          expect(last_response.body).to match /does not exist/
+        end
+
+        it 'returns a link to create the category' do
+          get '/f/mikamai'
+          expect(last_response.body).to match /Would you like to create it \?\<\/a\>/
+        end
+
+        context 'and there is a create param set to 1' do
+          it 'a new category is created' do
+            get '/f/mikamai', create: '1'
+            expect($r.exists "category_codes.to.id:mikamai").to be_truthy
+          end
+
+          it 'the user is redirected to the category page' do
+            get '/f/mikamai', create: '1'
+            expect(last_response.status).to eq 302
+          end
+        end
+      end
+    end
+  end
+
   describe '/api/create_account' do
     ['anti rez', '0antirez', '_antirez'].each do |invalid_username|
       context "with #{invalid_username} as username" do

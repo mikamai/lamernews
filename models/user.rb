@@ -4,7 +4,7 @@ class User
 
   def initialize args={}
     args.each do |key, val|
-      val = val.to_i if %w(karma).include?(key)
+      val = val.to_i if %w(id karma).include?(key)
       send "#{key}=", val
     end
   end
