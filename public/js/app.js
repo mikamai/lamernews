@@ -262,7 +262,7 @@ $(function(){
 // Show preview button when article contains an image or video
 var preview = function () {
   return {
-    "none": function(article, articleHref) {
+    "url": function(article, articleHref) {
       // NOTHING!
     },
     "video": function(article, articleHref) {
