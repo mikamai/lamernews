@@ -44,6 +44,7 @@ function reset_password() {
 
 function submit() {
     var data = {
+        category_code: $("input[name=category_code]").val(),
         news_id: $("input[name=news_id]").val(),
         title: $("input[name=title]").val(),
         url: $("input[name=url]").val(),

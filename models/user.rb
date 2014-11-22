@@ -9,6 +9,11 @@ class User
     end
   end
 
+  def enough_karma_to_vote? vote_type
+    return (vote_type == :up && karma < NewsUpvoteMinKarma) ||
+           (vote_type == :down && karma < NewsDownvoteMinKarma)
+  end
+
   def change_karma_by amount
     self.karma += amount
     $r.hincrby "user:#{id}", "karma", amount
@@ -32,6 +37,10 @@ class User
     $r.hincrby "user:#{id}", "karma", amount
   end
 
+  def self.find_email_by_id id
+    $r.hget "user:#{id}", "email"
+  end
+
   def self.find_or_create_using_google_oauth2 auth_data
     find_or_create auth_data['info']['name'], auth_data['info']['email']
   end
@@ -45,16 +54,16 @@ class User
     auth_token = generate_auth_token
     apisecret = generate_api_secret
     $r.hmset "user:#{id}",
-    "id",              id,
-    "name",            name,
-    "ctime",           Time.now.to_i,
-    "karma",           UserInitialKarma,
-    "about",           "",
-    "email",           email,
-    "auth",            auth_token,
-    "apisecret",       apisecret,
-    "flags",           "",
-    "karma_incr_time", Time.now.to_i
+      "id",              id,
+      "name",            name,
+      "ctime",           Time.now.to_i,
+      "karma",           UserInitialKarma,
+      "about",           "",
+      "email",           email,
+      "auth",            auth_token,
+      "apisecret",       apisecret,
+      "flags",           "",
+      "karma_incr_time", Time.now.to_i
     $r.set "email.to.id:#{email}", id
     $r.set "auth:#{auth_token}", id
     find(id)

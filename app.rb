@@ -36,6 +36,7 @@ require 'sinatra/contrib'
 require "sinatra/reloader" if development?
 require_relative 'models/user'
 require_relative 'models/category'
+require_relative 'models/news'
 require 'json'
 require 'digest/sha1'
 require 'digest/md5'
@@ -93,11 +94,13 @@ get '/' do
 end
 
 get '/f/:category' do
-  category = Category.find_by_code params[:category]
+  category = $category = Category.find_by_code params[:category]
   if category
+    news,numitems = category.top_news
     H.set_title "#{SiteName} - #{category.code}"
     H.page {
-      H.p { "You are in category #{category.code}" }
+      H.p { "You are in category #{category.code}" } +
+      H.h2 {"Top news"} + news_list_to_html(news)
     }
   elsif $user
     if params[:create] == '1'
@@ -265,39 +268,61 @@ get '/auth/:provider/callback' do
 end
 
 get '/submit' do
-    redirect "/" if !$user
-    H.set_title "Submit a new story - #{SiteName}"
-    H.page {
-        H.h2 {"Submit a new story"}+
-        H.div(:id => "submitform") {
-            H.form(:name=>"f") {
-                H.inputhidden(:name => "news_id", :value => -1)+
-                H.label(:for => "title") {"title"}+
-                H.inputtext(:id => "title", :name => "title", :size => 80, :value => (params[:t] ? H.entities(params[:t]) : ""))+H.br+
-                H.label(:for => "url") {"url"}+H.br+
-                H.inputtext(:id => "url", :name => "url", :size => 60, :value => (params[:u] ? H.entities(params[:u]) : ""))+H.br+
-                "or if you don't have an url type some text"+
-                H.br+
-                H.label(:for => "text") {"text"}+
-                H.textarea(:id => "text", :name => "text", :cols => 60, :rows => 10) {}+
-                H.button(:name => "do_submit", :value => "Submit")
-            }
-        }+
-        H.div(:id => "errormsg"){}+
-        H.p {
-            bl = "javascript:window.location=%22#{SiteUrl}/submit?u=%22+encodeURIComponent(document.location)+%22&t=%22+encodeURIComponent(document.title)"
-            "Submitting news is simpler using the "+
-            H.a(:href => bl) {
-                "bookmarklet"
-            }+
-            " (drag the link to your browser toolbar)"
-        }+
-        H.script() {'
-            $(function() {
-                $("input[name=do_submit]").click(submit);
-            });
-        '}
+  render_submit_form
+end
+
+get '/f/:category/submit' do
+  category = Category.find_by_code params[:category]
+  if category
+    render_submit_form category
+  else
+    halt(404, "The category you are searching does not exist")
+  end
+end
+
+def render_submit_form category = nil
+  redirect "/" if !$user
+  H.set_title "Submit a new story - #{SiteName}"
+  H.page {
+    H.h2 {"Submit a new story"}+
+    H.div(:id => "submitform") {
+      H.form(:name=>"f") {
+        category_fields = if category
+          H.inputhidden(:name => "category_code", :value => category.code) +
+          H.label { category.code }
+        else
+          ''
+        end
+
+        H.inputhidden(:name => "news_id", :value => -1)+
+        category_fields +
+        H.br +
+        H.label(:for => "title") {"title"}+
+        H.inputtext(:id => "title", :name => "title", :size => 80, :value => (params[:t] ? H.entities(params[:t]) : ""))+H.br+
+        H.label(:for => "url") {"url"}+H.br+
+        H.inputtext(:id => "url", :name => "url", :size => 60, :value => (params[:u] ? H.entities(params[:u]) : ""))+H.br+
+        "or if you don't have an url type some text"+
+        H.br+
+        H.label(:for => "text") {"text"}+
+        H.textarea(:id => "text", :name => "text", :cols => 60, :rows => 10) {}+
+        H.button(:name => "do_submit", :value => "Submit")
+      }
+    } +
+    H.div(:id => "errormsg"){} +
+    H.p {
+      bl = "javascript:window.location=%22#{SiteUrl}/submit?u=%22+encodeURIComponent(document.location)+%22&t=%22+encodeURIComponent(document.title)"
+      "Submitting news is simpler using the "+
+      H.a(:href => bl) {
+        "bookmarklet"
+      }+
+      " (drag the link to your browser toolbar)"
+    } +
+    H.script() {
+      '$(function() {
+          $("input[name=do_submit]").click(submit);
+      });'
     }
+  }
 end
 
 get '/logout' do
@@ -311,27 +336,27 @@ get "/news/:news_id" do
     news = get_news_by_id(params["news_id"])
     halt(404,"404 - This news does not exist.") if !news
     # Show the news text if it is a news without URL.
-    if !news_domain(news) and !news["del"]
+    if !news.domain and !news.del
         c = {
-            "body" => news_text(news),
-            "ctime" => news["ctime"],
-            "user_id" => news["user_id"],
-            "thread_id" => news["id"],
+            "body" => news.text,
+            "ctime" => news.ctime,
+            "user_id" => news.user_id,
+            "thread_id" => news.id,
             "topcomment" => true
         }
-        user = User.find(news["user_id"]) || User.deleted_one
+        user = User.find(news.user_id) || User.deleted_one
         top_comment = H.topcomment {comment_to_html(c,user)}
     else
         top_comment = ""
     end
-    H.set_title "#{news["title"]} - #{SiteName}"
+    H.set_title "#{news.title} - #{SiteName}"
     H.page {
         H.section(:id => "newslist") {
             news_to_html(news)
         }+top_comment+
-        if $user and !news["del"]
+        if $user and !news.del
             H.form(:name=>"f") {
-                H.inputhidden(:name => "news_id", :value => news["id"])+
+                H.inputhidden(:name => "news_id", :value => news.id)+
                 H.inputhidden(:name => "comment_id", :value => -1)+
                 H.inputhidden(:name => "parent_id", :value => -1)+
                 H.textarea(:name => "comment", :cols => 60, :rows => 10) {}+H.br+
@@ -340,7 +365,7 @@ get "/news/:news_id" do
         else
             H.br
         end +
-        render_comments_for_news(news["id"])+
+        render_comments_for_news(news.id)+
         H.script() {'
             $(function() {
                 $("input[name=post_comment]").click(post_comment);
@@ -434,47 +459,46 @@ get "/editcomment/:news_id/:comment_id" do
 end
 
 get "/editnews/:news_id" do
-    redirect "/" if !$user
-    news = get_news_by_id(params["news_id"])
-    halt(404,"404 - This news does not exist.") if !news
-    halt(500,"Permission denied.") if $user.id.to_i != news['user_id'].to_i and !user_is_admin?($user)
+  redirect "/" if !$user
+  news = get_news_by_id(params["news_id"])
+  halt(404,"404 - This news does not exist.") if !news
+  halt(500,"Permission denied.") if $user.id != news.user_id and !user_is_admin?($user)
 
-    if news_domain(news)
-        text = ""
-    else
-        text = news_text(news)
-        news['url'] = ""
-    end
-    H.set_title "Edit news - #{SiteName}"
-    H.page {
-        news_to_html(news)+
-        H.div(:id => "submitform") {
-            H.form(:name=>"f") {
-                H.inputhidden(:name => "news_id", :value => news['id'])+
-                H.label(:for => "title") {"title"}+
-                H.inputtext(:id => "title", :name => "title", :size => 80,
-                            :value => news['title'])+H.br+
-                H.label(:for => "url") {"url"}+H.br+
-                H.inputtext(:id => "url", :name => "url", :size => 60,
-                            :value => H.entities(news['url']))+H.br+
-                "or if you don't have an url type some text"+
-                H.br+
-                H.label(:for => "text") {"text"}+
-                H.textarea(:id => "text", :name => "text", :cols => 60, :rows => 10) {
-                    H.entities(text)
-                }+H.br+
-                H.checkbox(:name => "del", :value => "1")+
-                "delete this news"+H.br+
-                H.button(:name => "edit_news", :value => "Edit")
-            }
-        }+
-        H.div(:id => "errormsg"){}+
-        H.script() {'
-            $(function() {
-                $("input[name=edit_news]").click(submit);
-            });
-        '}
-    }
+  text, url = if news.domain
+    ["", news.url]
+  else
+    [news.text, ""]
+  end
+  H.set_title "Edit news - #{SiteName}"
+  H.page {
+    news_to_html(news) +
+    H.div(:id => "submitform") {
+      H.form(:name=>"f") {
+        H.inputhidden(:name => "news_id", :value => news.id)+
+        H.label(:for => "title") {"title"}+
+        H.inputtext(:id => "title", :name => "title", :size => 80,
+                    :value => news.title)+H.br+
+        H.label(:for => "url") {"url"}+H.br+
+        H.inputtext(:id => "url", :name => "url", :size => 60,
+                    :value => H.entities(url))+H.br+
+        "or if you don't have an url type some text"+
+        H.br+
+        H.label(:for => "text") {"text"}+
+        H.textarea(:id => "text", :name => "text", :cols => 60, :rows => 10) {
+            H.entities(text)
+        }+H.br+
+        H.checkbox(:name => "del", :value => "1")+
+        "delete this news"+H.br+
+        H.button(:name => "edit_news", :value => "Edit")
+      }
+    }+
+    H.div(:id => "errormsg"){}+
+    H.script() {'
+        $(function() {
+            $("input[name=edit_news]").click(submit);
+        });
+    '}
+  }
 end
 
 get "/user/:username" do
@@ -639,15 +663,23 @@ post '/api/submit' do
         end
     end
     if params[:news_id].to_i == -1
-        if submitted_recently
-            return {
-                :status => "err",
-                :error => "You have submitted a story too recently, "+
-                "please wait #{allowed_to_post_in_seconds} seconds."
-            }.to_json
-        end
-        news_id = insert_news(params[:title],params[:url],params[:text],
-                              $user.id)
+      if submitted_recently
+          return {
+              :status => "err",
+              :error => "You have submitted a story too recently, "+
+              "please wait #{allowed_to_post_in_seconds} seconds."
+          }.to_json
+      end
+      category = nil
+      if params[:category_code]
+        category = Category.find_by_code params[:category_code]
+        return {
+          :status => "err",
+          :error  => "Category #{params[:category_code]} not found"
+        } if category.nil?
+      end
+      news_id = insert_news(params[:title],params[:url],params[:text],
+                            $user, category)
     else
         news_id = edit_news(params[:news_id],params[:title],params[:url],
                             params[:text],$user.id)
@@ -677,7 +709,7 @@ post '/api/delnews' do
             :error => "Please specify a news title."
         }.to_json
     end
-    if del_news(params[:news_id],$user.id)
+    if del_news(params[:news_id], $user.id)
         return {:status => "ok", :news_id => -1}.to_json
     end
     return {:status => "err", :error => "News too old or wrong ID/owner."}.to_json
@@ -888,7 +920,7 @@ def application_header
     navitems = [    ["top","/"],
                     ["latest","/latest/0"],
                     ["random","/random"],
-                    ["submit","/submit"]]
+                    ["submit", ($category ? "/f/#{$category.code}/submit" : "/submit")]]
     navbar = H.nav {
         navitems.map{|ni|
             H.a(:href=>ni[1]) {H.entities ni[0]}
@@ -1059,66 +1091,7 @@ end
 # Doing this in a centralized way offers us the ability to exploit
 # Redis pipelining.
 def get_news_by_id(news_ids,opt={})
-    result = []
-    if !news_ids.is_a? Array
-        opt[:single] = true
-        news_ids = [news_ids]
-    end
-    news = $r.pipelined {
-        news_ids.each{|nid|
-            $r.hgetall("news:#{nid}")
-        }
-    }
-    return [] if !news # Can happen only if news_ids is an empty array.
-
-    # Remove empty elements
-    news = news.select{|x| x.length > 0}
-    if news.length == 0
-        return opt[:single] ? nil : []
-    end
-
-    # Get all the news
-    $r.pipelined {
-        news.each{|n|
-            # Adjust rank if too different from the real-time value.
-            update_news_rank_if_needed(n) if opt[:update_rank]
-            result << n
-        }
-    }
-
-    # Get the associated users information
-    usernames = $r.pipelined {
-        result.each{|n|
-            $r.hget("user:#{n["user_id"]}","email")
-        }
-    }
-    result.each_with_index{|n,i|
-        n["username"] = usernames[i]
-    }
-
-    # Load $User vote information if we are in the context of a
-    # registered user.
-    if $user
-        votes = $r.pipelined {
-            result.each{|n|
-                $r.zscore("news.up:#{n["id"]}",$user.id)
-                $r.zscore("news.down:#{n["id"]}",$user.id)
-            }
-        }
-        result.each_with_index{|n,i|
-            if votes[i*2]
-                n["voted"] = :up
-            elsif votes[(i*2)+1]
-                n["voted"] = :down
-            end
-        }
-    end
-
-    # Return an array if we got an array as input, otherwise
-    # the single element the caller requested.
-
-    news_type(result)
-    opt[:single] ? result[0] : result
+  News.find news_ids, update_rank: opt[:update_rank], user_id: ($user ? $user.id : nil)
 end
 
 def get_news_by_id_with_type(news_ids,opt={})
@@ -1169,89 +1142,12 @@ end
 # On error the returned karma is false, and error is a string describing the
 # error that prevented the vote.
 def vote_news(news_id,user_id,vote_type)
-    # Fetch news and user
-    user = ($user and $user.id == user_id) ? $user : User.find(user_id)
-    news = get_news_by_id(news_id)
-    return false,"No such news or user." if !news or !user
-
-    # Now it's time to check if the user already voted that news, either
-    # up or down. If so return now.
-    if $r.zscore("news.up:#{news_id}",user_id) or
-       $r.zscore("news.down:#{news_id}",user_id)
-       return false,"Duplicated vote."
-    end
-
-    # Check if the user has enough karma to perform this operation
-    if $user.id != news['user_id']
-        if (vote_type == :up and
-             ($user.karma < NewsUpvoteMinKarma)) or
-           (vote_type == :down and
-             ($user.karma < NewsDownvoteMinKarma))
-            return false,"You don't have enough karma to vote #{vote_type}"
-        end
-    end
-
-    # News was not already voted by that user. Add the vote.
-    # Note that even if there is a race condition here and the user may be
-    # voting from another device/API in the time between the ZSCORE check
-    # and the zadd, this will not result in inconsistencies as we will just
-    # update the vote time with ZADD.
-    if $r.zadd("news.#{vote_type}:#{news_id}", Time.now.to_i, user_id)
-        $r.hincrby("news:#{news_id}",vote_type,1)
-    end
-    $r.zadd("user.saved:#{user_id}", Time.now.to_i, news_id) if vote_type == :up
-
-    # Compute the new values of score and karma, updating the news accordingly.
-    score = compute_news_score(news)
-    news["score"] = score
-    rank = compute_news_rank(news)
-    $r.hmset("news:#{news_id}",
-        "score",score,
-        "rank",rank)
-    $r.zadd("news.top",rank,news_id)
-
-    # Remove some karma to the user if needed, and transfer karma to the
-    # news owner in the case of an upvote.
-    if $user.id != news['user_id']
-      if vote_type == :up
-        user.change_karma_by -NewsUpvoteKarmaCost
-        User.change_karma_by news['user_id'], NewsUpvoteKarmaTransfered
-      else
-        user.change_karma_by -NewsDownvoteKarmaCost
-      end
-    end
-
-    return rank,nil
-end
-
-# Given the news compute its score.
-# No side effects.
-def compute_news_score(news)
-    upvotes = $r.zrange("news.up:#{news["id"]}",0,-1,:withscores => true)
-    downvotes = $r.zrange("news.down:#{news["id"]}",0,-1,:withscores => true)
-    # FIXME: For now we are doing a naive sum of votes, without time-based
-    # filtering, nor IP filtering.
-    # We could use just ZCARD here of course, but I'm using ZRANGE already
-    # since this is what is needed in the long term for vote analysis.
-    score = upvotes.length-downvotes.length
-    # Now let's add the logarithm of the sum of all the votes, since
-    # something with 5 up and 5 down is less interesting than something
-    # with 50 up and 50 donw.
-    votes = upvotes.length/2+downvotes.length/2
-    if votes > NewsScoreLogStart
-        score += Math.log(votes-NewsScoreLogStart)*NewsScoreLogBooster
-    end
-    score
-end
-
-# Given the news compute its rank, that is function of time and score.
-#
-# The general forumla is RANK = SCORE / (AGE ^ AGING_FACTOR)
-def compute_news_rank(news)
-    age = (Time.now.to_i - news["ctime"].to_i)
-    rank = ((news["score"].to_f)*1000000)/((age+NewsAgePadding)**RankAgingFactor)
-    rank = -age if (age > TopNewsAgeLimit)
-    return rank
+  # Fetch news and user
+  user = ($user and $user.id == user_id) ? $user : User.find(user_id)
+  news = get_news_by_id(news_id)
+  return false,"No such news or user." if !news or !user
+  news.vote user, vote_type
+  return news.rank, nil
 end
 
 # Add a news with the specified url or text.
@@ -1262,7 +1158,7 @@ end
 #
 # Return value: the ID of the inserted news, or the ID of the news with
 # the same URL recently added.
-def insert_news(title,url,text,user_id)
+def insert_news(title,url,text,user, category=nil)
     # If we don't have an url but a comment, we turn the url into
     # text://....first comment..., so it is just a special case of
     # title+url anyway.
@@ -1271,36 +1167,12 @@ def insert_news(title,url,text,user_id)
         url = "text://"+text[0...CommentMaxLength]
     end
     # Check for already posted news with the same URL.
-    if !textpost and (id = $r.get("url:"+url))
-        return id.to_i
+    unless textpost
+      news_id = News.find_id_by_url url
+      return news_id if news_id
     end
-    # We can finally insert the news.
-    ctime = Time.new.to_i
-    news_id = $r.incr("news.count")
-    $r.hmset("news:#{news_id}",
-        "id", news_id,
-        "title", title,
-        "url", url,
-        "user_id", user_id,
-        "ctime", ctime,
-        "score", 0,
-        "rank", 0,
-        "up", 0,
-        "down", 0,
-        "comments", 0)
-    # The posting user virtually upvoted the news posting it
-    rank,error = vote_news(news_id,user_id,:up)
-    # Add the news to the user submitted news
-    $r.zadd("user.posted:#{user_id}",ctime,news_id)
-    # Add the news into the chronological view
-    $r.zadd("news.cron",ctime,news_id)
-    # Add the news into the top view
-    $r.zadd("news.top",rank,news_id)
-    # Add the news url for some time to avoid reposts in short time
-    $r.setex("url:"+url,PreventRepostTime,news_id) if !textpost
-    # Set a timeout indicating when the user may post again
-    $r.setex("user:#{$user.id}:submitted_recently",NewsSubmissionBreak,'1')
-    return news_id
+    news = News.create title, url, user, category
+    return news.id
 end
 
 # Edit an already existing news.
@@ -1310,65 +1182,39 @@ end
 # On failure (for instance news_id does not exist or does not match
 #             the specified user_id) false is returned.
 def edit_news(news_id,title,url,text,user_id)
-    news = get_news_by_id(news_id)
-    return false if !news or news['user_id'].to_i != user_id.to_i and !user_is_admin?($user)
-    return false if !(news['ctime'].to_i > (Time.now.to_i - NewsEditTime)) and !user_is_admin?($user)
+  news = News.find news_id
+  return false if !news or news.user_id != user_id.to_i and !user_is_admin?($user)
+  return false if !(news.ctime > (Time.now.to_i - NewsEditTime)) and !user_is_admin?($user)
 
-    # If we don't have an url but a comment, we turn the url into
-    # text://....first comment..., so it is just a special case of
-    # title+url anyway.
-    textpost = url.length == 0
-    if url.length == 0
-        url = "text://"+text[0...CommentMaxLength]
-    end
-    # Even for edits don't allow to change the URL to the one of a
-    # recently posted news.
-    if !textpost and url != news['url']
-        return false if $r.get("url:"+url)
-        # No problems with this new url, but the url changed
-        # so we unblock the old one and set the block in the new one.
-        # Otherwise it is easy to mount a DOS attack.
-        $r.del("url:"+news['url'])
-        $r.setex("url:"+url,PreventRepostTime,news_id) if !textpost
-    end
-    # Edit the news fields.
-    $r.hmset("news:#{news_id}",
-        "title", title,
-        "url", url)
-    return news_id
+  # If we don't have an url but a comment, we turn the url into
+  # text://....first comment..., so it is just a special case of
+  # title+url anyway.
+  textpost = url.length == 0
+  if url.length == 0
+    url = "text://"+text[0...CommentMaxLength]
+  end
+  # Even for edits don't allow to change the URL to the one of a
+  # recently posted news.
+  if !textpost and url != news.url
+    return false if $r.exists "url:#{url}"
+  end
+  news.update title, url
+  return news_id
 end
 
 # Mark an existing news as removed.
 def del_news(news_id,user_id)
-    news = get_news_by_id(news_id)
-    return false if !news or news['user_id'].to_i != user_id.to_i and !user_is_admin?($user)
-    return false if !(news['ctime'].to_i > (Time.now.to_i - NewsEditTime)) and !user_is_admin?($user)
-
-    $r.hmset("news:#{news_id}","del",1)
-    $r.zrem("news.top",news_id)
-    $r.zrem("news.cron",news_id)
-    return true
-end
-
-# Return the host part of the news URL field.
-# If the url is in the form text:// nil is returned.
-def news_domain(news)
-    su = news["url"].split("/")
-    domain = (su[0] == "text:") ? nil : su[2]
-end
-
-# Assuming the news has an url in the form text:// returns the text
-# inside. Otherwise nil is returned.
-def news_text(news)
-    su = news["url"].split("/")
-    (su[0] == "text:") ? news["url"][7..-1] : nil
+  news = News.find news_id
+  return false if !news or news.user_id != user_id.to_i and !user_is_admin?($user)
+  return false if !(news.ctime > (Time.now.to_i - NewsEditTime)) and !user_is_admin?($user)
+  news.destroy
 end
 
 # Turn the news into its RSS representation
 # This function expects as input a news entry as obtained from
 # the get_news_by_id function.
 def news_to_rss(news)
-    domain = news_domain(news)
+    domain = news.domain
     news = {}.merge(news) # Copy the object so we can modify it as we wish.
     news["ln_url"] = "#{SiteUrl}/news/#{news["id"]}"
     news["url"] = news["ln_url"] if !domain
@@ -1403,9 +1249,9 @@ end
 def news_to_html(news)
     return H.article(:class => "deleted") {
         "[deleted news]"
-    } if news["del"]
-    domain = news_domain(news)
-    news = {}.merge(news) # Copy the object so we can modify it as we wish.
+    } if news.del
+    domain = news.domain
+    news = {}.merge(news.to_h) # Copy the object so we can modify it as we wish.
     news["url"] = "/news/#{news["id"]}" if !domain
     upclass = "uparrow"
     downclass = "downarrow"
@@ -1443,8 +1289,8 @@ def news_to_html(news)
             H.span(:class => :upvotes) { news["up"] } + " up and " +
             H.span(:class => :downvotes) { news["down"] } + " down, posted by " +
             H.username {
-                H.a(:href=>"/user/"+URI.encode(news["username"])) {
-                    H.entities news["username"]
+                H.a(:href=>"/user/"+URI.encode(news["user_email"])) {
+                    H.entities news["user_email"]
                 }
             }+" "+str_elapsed(news["ctime"].to_i)+" "+
             H.a(:href => "/news/#{news["id"]}") {
@@ -1490,24 +1336,6 @@ def news_list_to_html(news)
         }
         aux
     }
-end
-
-# Updating the rank would require some cron job and worker in theory as
-# it is time dependent and we don't want to do any sorting operation at
-# page view time. But instead what we do is to compute the rank from the
-# score and update it in the sorted set only if there is some sensible error.
-# This way ranks are updated incrementally and "live" at every page view
-# only for the news where this makes sense, that is, top news.
-#
-# Note: this function can be called in the context of redis.pipelined {...}
-def update_news_rank_if_needed(n)
-    real_rank = compute_news_rank(n)
-    delta_rank = (real_rank-n["rank"].to_f).abs
-    if delta_rank > 0.000001
-        $r.hmset("news:#{n["id"]}","rank",real_rank)
-        $r.zadd("news.top",real_rank,n["id"])
-        n["rank"] = real_rank.to_s
-    end
 end
 
 # Generate the main page of the web site, the one where news are ordered by
