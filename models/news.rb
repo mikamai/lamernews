@@ -57,8 +57,8 @@ class News
 
   def update new_title, new_url
     if new_url != url
+      $r.del "url:#{url}"
       self.url = new_url
-      $r.del "url:#{new_url}"
       $r.setex "url:#{new_url}", PreventRepostTime, id unless textual?
     end
     self.title = new_title
