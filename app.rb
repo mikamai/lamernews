@@ -771,22 +771,27 @@ get  '/api/getnews/:sort/:start/:count' do
     return { :status => "ok", :news => news, :count => numitems }.to_json
 end
 
-get  '/api/getnews-infinite/:sort/:start/:count' do
+get  '/infinite/:sort/:start/:count' do
     sort = params[:sort].to_sym
     start = params[:start].to_i
     count = params[:count].to_i
     if not [:latest,:top].index(sort)
         return {:status => "err", :error => "Invalid sort parameter"}.to_json
     end
-    return {:status => "err", :error => "Count is too big"}.to_json if count > APIMaxNewsCount
 
     start = 0 if start < 0
     getfunc = method((sort == :latest) ? :get_latest_news : :get_top_news)
     news,numitems = getfunc.call(start,count)
-    news.each{|n|
-        ['rank','score','user_id'].each{|field| n.delete(field)}
+    paginate = {
+        :get => news,
+        :render => Proc.new {|item| news_to_html(item)},
+        :start => start,
+        :perpage => LatestNewsPerPage,
+        :link => "/latest/$"
     }
-    return { :status => "ok", :news => multiple_news_to_html(news), :count => numitems }.to_json
+    list_items(paginate)
+    exit
+    return { :status => "ok", :news => list_items(paginate), :count => numitems }.to_json
 end
 
 get  '/api/getcomments/:news_id' do

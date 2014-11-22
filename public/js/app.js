@@ -312,7 +312,7 @@ $(function() {
   $('#newslist .more').on('click', function(event) {
     event.preventDefault();
     var newsPerPage = $('body').attr('data-news-per-page')
-    $.get("/api/getnews-infinite/latest/function" + newsPerPage + "/" + newsPerPage)
+    $.get("/infinite/latest/" + newsPerPage + "/" + newsPerPage)
     .done(function(data) {
       var data = JSON.parse(data);
       $('article:last').after(data.news);
