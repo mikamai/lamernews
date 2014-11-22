@@ -56,7 +56,7 @@ RUN echo 'gem: --no-rdoc --no-ri' >> $HOME/.gemrc
 RUN gem install bundler
 RUN bundle config path /app/vendor/remote_gems
 
-ENV LN_RELEASE 122ca
+ENV LN_RELEASE 976d7
 RUN git clone https://github.com/mikamai/lamernews.git /app
 
 WORKDIR /app
@@ -67,5 +67,8 @@ EXPOSE 9292
 
 ENV RACK_ENV production
 ENV LN_REDIS_URL redis://redis:6379
+
+ENV GOOGLE_OAUTH2_KEY set_me_via_docker_run
+ENV GOOGLE_OAUTH2_SECRET set_me_via_docker_run
 
 CMD ["bundle", "exec", "rackup"]
