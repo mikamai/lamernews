@@ -127,6 +127,7 @@ get '/latest/:start' do
         :link => "/latest/$"
     }
     H.page {
+        H.body("data-news-per-page" => LatestNewsPerPage)+
         H.h2 {"Latest news"}+
         H.section(:id => "newslist") {
             list_items(paginate)
