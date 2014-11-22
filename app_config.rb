@@ -1,7 +1,7 @@
 # General
-SiteName = "Lamer News"
-SiteUrl = "http://lamernews.com"
-SiteDescription = "Programming News"
+SiteName = "FUSC"
+SiteUrl = "http://fusc.mikamai.com"
+SiteDescription = "Fiddly Unique Social Container"
 
 # Redis config
 RedisURL = ENV["LN_REDIS_URL"] || "redis://127.0.0.1:10000"
@@ -41,7 +41,7 @@ UsernameRegexp = /^[a-zA-Z][a-zA-Z0-9_\-]+$/
 # News and ranking
 NewsAgePadding = 3600*8
 TopNewsPerPage = 30
-LatestNewsPerPage = 100
+LatestNewsPerPage = 20
 NewsEditTime = 60*15
 NewsScoreLogStart = 10
 NewsScoreLogBooster = 2
