@@ -1,6 +1,6 @@
 class News
   attr_accessor :id, :title, :url, :user_id, :ctime, :score, :rank, :up, :down,
-                :comments, :category_id, :del
+                :comments, :category_id, :del, :type
   attr_writer :user_email
   attr_accessor :voted
 
@@ -42,7 +42,8 @@ class News
       "category_id" => category_id,
       "del" => del,
       "user_email" => user_email,
-      "voted" => voted
+      "voted" => voted,
+      "type" => type
     }
   end
 

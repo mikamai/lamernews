@@ -1115,7 +1115,7 @@ end
 # Doing this in a centralized way offers us the ability to exploit
 # Redis pipelining.
 def get_news_by_id(news_ids,opt={})
-  News.find news_ids, update_rank: opt[:update_rank], user_id: ($user ? $user.id : nil)
+  news_type(News.find news_ids, update_rank: opt[:update_rank], user_id: ($user ? $user.id : nil))
 end
 
 def get_news_by_id_with_type(news_ids,opt={})
@@ -1142,11 +1142,8 @@ def media_type url
 end
 
 def news_type news
-  result = [*news].map do |item|
-    item['type'] = media_type(item['url'])
-    item
-  end
-  return (news.is_a? Array) ? result : result.first
+  [*news].each { |item| item.type = media_type(item.url) }
+  news
 end
 
 # Vote the specified news in the context of a given user.
