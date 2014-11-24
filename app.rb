@@ -412,7 +412,7 @@ get "/reply/:news_id/:comment_id" do
         news_to_html(news)+
         comment_to_html(comment,user)+
         H.form(:name=>"f") {
-            H.inputhidden(:name => "news_id", :value => news["id"])+
+            H.inputhidden(:name => "news_id", :value => news.id)+
             H.inputhidden(:name => "comment_id", :value => -1)+
             H.inputhidden(:name => "parent_id", :value => params["comment_id"])+
             H.textarea(:name => "comment", :cols => 60, :rows => 10) {}+H.br+
