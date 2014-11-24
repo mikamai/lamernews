@@ -273,7 +273,7 @@ get '/submit' do
 end
 
 get '/f/:category/submit' do
-  category = Category.find_by_code params[:category]
+  category = $category = Category.find_by_code params[:category]
   if category
     render_submit_form category
   else
