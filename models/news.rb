@@ -158,8 +158,6 @@ class News
       $r.zadd "news.top", rank, id
       # Add the news url for some time to avoid reposts in short time
       $r.setex "url:#{url}", PreventRepostTime, id unless news.textual?
-      # Set a timeout indicating when the user may post again
-      $r.setex "user:#{user.id}:submitted_recently", NewsSubmissionBreak, '1'
 
       if category
         $r.zadd "news.cron.by_category:#{category.id}", ctime, id

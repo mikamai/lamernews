@@ -190,7 +190,10 @@ describe News do
     let!(:user) { User.find_or_create 'foo', 'foo@bar.baz' }
 
     context 'when the user already voted the subject' do
-      before { subject.vote user, :up }
+      before do
+        allow(user).to receive(:enough_karma_to_vote?).and_return true
+        subject.vote user, :up
+      end
 
       it 'returns false with a message' do
         expect(subject.vote user, :down).to eq [false, "Duplicated vote."]

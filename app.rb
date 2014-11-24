@@ -664,13 +664,6 @@ post '/api/submit' do
         end
     end
     if params[:news_id].to_i == -1
-      if submitted_recently
-          return {
-              :status => "err",
-              :error => "You have submitted a story too recently, "+
-              "please wait #{allowed_to_post_in_seconds} seconds."
-          }.to_json
-      end
       category = nil
       if params[:category_code]
         category = Category.find_by_code params[:category_code]
@@ -1056,17 +1049,6 @@ def get_rand
     rand = "";
     File.open("/dev/urandom").read(20).each_byte{|x| rand << sprintf("%02x",x)}
     rand
-end
-
-# Has the user submitted a news story in the last `NewsSubmissionBreak` seconds?
-def submitted_recently
-    allowed_to_post_in_seconds > 0
-end
-
-# Indicates when the user is allowed to submit another story after the last.
-def allowed_to_post_in_seconds
-    return 0 if user_is_admin?($user)
-    $r.ttl("user:#{$user.id}:submitted_recently")
 end
 
 # Add the specified set of flags to the user.
