@@ -1198,7 +1198,7 @@ end
 # the get_news_by_id function.
 def news_to_rss(news)
     domain = news.domain
-    news = {}.merge(news) # Copy the object so we can modify it as we wish.
+    news = {}.merge(news.to_h) # Copy the object so we can modify it as we wish.
     news["ln_url"] = "#{SiteUrl}/news/#{news["id"]}"
     news["url"] = news["ln_url"] if !domain
 
