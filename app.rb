@@ -1125,8 +1125,12 @@ def vote_news(news_id,user_id,vote_type)
   user = ($user and $user.id == user_id) ? $user : User.find(user_id)
   news = get_news_by_id(news_id)
   return false,"No such news or user." if !news or !user
-  news.vote user, vote_type
-  return news.rank, nil
+  vote_result, vote_error = news.vote(user, vote_type)
+  if vote_result
+    return news.rank, nil
+  else
+    return vote_result, vote_error
+  end
 end
 
 # Add a news with the specified url or text.
