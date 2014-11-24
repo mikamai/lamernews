@@ -235,5 +235,24 @@ describe News do
         expect($r.hget "news:#{subject.id}", "down").to eq '0'
       end
     end
+
+    it 'updates score and karma' do
+      expect(subject).to receive(:update_score_and_karma)
+      subject.vote user, :down
+    end
+
+    it 'transfers karma when the user is not the author' do
+      expect(subject).to receive(:transfer_karma).with(user, :down)
+      subject.vote user, :down
+    end
+
+    it 'does not transfer karma when the user is the author' do
+      expect(subject).to_not receive(:transfer_karma).with(user, :down)
+      subject.vote author, :down
+    end
+
+    it 'returns the new rank' do
+      expect(subject.vote user, :down).to eq [0.0, nil]
+    end
   end
 end

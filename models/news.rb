@@ -100,14 +100,7 @@ class News
 
     # Remove some karma to the user if needed, and transfer karma to the
     # news owner in the case of an upvote.
-    if user.id != user_id
-      if vote_type == :up
-        user.change_karma_by -NewsUpvoteKarmaCost
-        User.change_karma_by user_id, NewsUpvoteKarmaTransfered
-      else
-        user.change_karma_by -NewsDownvoteKarmaCost
-      end
-    end
+    transfer_karma user, vote_type if user.id != user_id
 
     return rank, nil
   end
@@ -185,18 +178,27 @@ class News
     end
   end
 
-  private
-
   # Compute the new values of score and karma, updating the news accordingly.
   def update_score_and_karma
     self.score = compute_score
     self.rank = compute_rank
     $r.hmset "news:#{id}",
-      "score", score,
-      "rank", rank
+    "score", score,
+    "rank", rank
     $r.zadd "news.top", rank, id
     $r.zadd "news.top.by_category:#{category_id}", rank, id if category_id
   end
+
+  def transfer_karma user, vote_type
+    if vote_type == :up
+      user.change_karma_by -NewsUpvoteKarmaCost
+      User.change_karma_by user_id, NewsUpvoteKarmaTransfered
+    else
+      user.change_karma_by -NewsDownvoteKarmaCost
+    end
+  end
+
+  private
 
   def compute_score
     upvotes = $r.zrange "news.up:#{id}", 0, -1, withscores: true
