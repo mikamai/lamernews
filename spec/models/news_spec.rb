@@ -139,10 +139,100 @@ describe News do
         expect(listing).to_not include subject.id.to_s
       end
 
-      it "removes the news from category cron listing" do
+      it 'removes the news from category cron listing' do
         subject.destroy
         listing = $r.zrevrange "news.cron.by_category:#{subject.category_id}", 0, -1
         expect(listing).to_not include subject.id.to_s
+      end
+    end
+
+    context 'if news is not in a category' do
+      before { subject.category_id = nil }
+
+      it 'does not alter category top listing' do
+        subject.destroy
+        listing = $r.zrevrange "news.top.by_category:#{category.id}", 0, -1
+        expect(listing).to include subject.id.to_s
+      end
+
+      it 'does not alter category cron listing' do
+        subject.destroy
+        listing = $r.zrevrange "news.cron.by_category:#{category.id}", 0, -1
+        expect(listing).to include subject.id.to_s
+      end
+    end
+  end
+
+  describe '#voted_by' do
+    let!(:user) { User.find_or_create 'a', 'a@a.it' }
+    subject { News.create 'asd', 'http://foo.bar', user, nil }
+
+    it 'returns true if given user voted the subject up' do
+      new_user_id = user.id + 1
+      $r.zadd "news.up:#{subject.id}", 1, new_user_id
+      expect(subject).to be_voted_by new_user_id
+    end
+
+    it 'returns true if given user voted the subject down' do
+      new_user_id = user.id + 1
+      $r.zadd "news.down:#{subject.id}", 1, new_user_id
+      expect(subject).to be_voted_by new_user_id
+    end
+
+    it 'returns false if given user did not vote the subject' do
+      expect(subject).to_not be_voted_by user.id + 1
+    end
+  end
+
+  describe '#vote' do
+    let!(:author) { User.find_or_create 'a', 'a@a.it' }
+    subject { News.create 'asd', 'http://foo.bar', author, nil }
+    let!(:user) { User.find_or_create 'foo', 'foo@bar.baz' }
+
+    context 'when the user already voted the subject' do
+      before do
+        allow(user).to receive(:enough_karma_to_vote?).and_return true
+        subject.vote user, :up
+      end
+
+      it 'returns false with a message' do
+        expect(subject.vote user, :down).to eq [false, "Duplicated vote."]
+      end
+    end
+
+    context 'when the user is not the author and it has not enough karma to vote' do
+      before do
+        expect(user).to receive(:enough_karma_to_vote?).with(:down).and_return false
+      end
+
+      it 'returns false with a message' do
+        expect(subject.vote user, :down).to eq [false, "You don't have enough karma to vote down"]
+      end
+    end
+
+    it 'adds the user_id to the votes collection' do
+      subject.vote user, :down
+      expect($r.zrevrange("news.down:#{subject.id}", 0, -1)).to include user.id.to_s
+    end
+
+    it 'adds the user_id to the votes collection with the actual time as score' do
+      Timecop.freeze do
+        subject.vote user, :down
+        expect($r.zscore "news.down:#{subject.id}", user.id).to eq Time.now.to_i
+      end
+    end
+
+    it 'increment the received votes' do
+      subject.vote user, :down
+      expect($r.hget "news:#{subject.id}", "down").to eq '1'
+    end
+
+    context 'when for some reason the user was in the votes collection' do
+      before { $r.zadd "news.down:#{subject.id}", 1, user.id }
+
+      it 'does not alter the received votes' do
+        subject.vote user, :down
+        expect($r.hget "news:#{subject.id}", "down").to eq '0'
       end
     end
   end

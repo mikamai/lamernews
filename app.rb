@@ -273,7 +273,7 @@ get '/submit' do
 end
 
 get '/f/:category/submit' do
-  category = Category.find_by_code params[:category]
+  category = $category = Category.find_by_code params[:category]
   if category
     render_submit_form category
   else
@@ -412,7 +412,7 @@ get "/reply/:news_id/:comment_id" do
         news_to_html(news)+
         comment_to_html(comment,user)+
         H.form(:name=>"f") {
-            H.inputhidden(:name => "news_id", :value => news["id"])+
+            H.inputhidden(:name => "news_id", :value => news.id)+
             H.inputhidden(:name => "comment_id", :value => -1)+
             H.inputhidden(:name => "parent_id", :value => params["comment_id"])+
             H.textarea(:name => "comment", :cols => 60, :rows => 10) {}+H.br+
@@ -664,13 +664,6 @@ post '/api/submit' do
         end
     end
     if params[:news_id].to_i == -1
-      if submitted_recently
-          return {
-              :status => "err",
-              :error => "You have submitted a story too recently, "+
-              "please wait #{allowed_to_post_in_seconds} seconds."
-          }.to_json
-      end
       category = nil
       if params[:category_code]
         category = Category.find_by_code params[:category_code]
@@ -1058,17 +1051,6 @@ def get_rand
     rand
 end
 
-# Has the user submitted a news story in the last `NewsSubmissionBreak` seconds?
-def submitted_recently
-    allowed_to_post_in_seconds > 0
-end
-
-# Indicates when the user is allowed to submit another story after the last.
-def allowed_to_post_in_seconds
-    return 0 if user_is_admin?($user)
-    $r.ttl("user:#{$user.id}:submitted_recently")
-end
-
 # Add the specified set of flags to the user.
 # Returns false on error (non existing user), otherwise true is returned.
 #
@@ -1143,8 +1125,12 @@ def vote_news(news_id,user_id,vote_type)
   user = ($user and $user.id == user_id) ? $user : User.find(user_id)
   news = get_news_by_id(news_id)
   return false,"No such news or user." if !news or !user
-  news.vote user, vote_type
-  return news.rank, nil
+  vote_result, vote_error = news.vote(user, vote_type)
+  if vote_result
+    return news.rank, nil
+  else
+    return vote_result, vote_error
+  end
 end
 
 # Add a news with the specified url or text.
