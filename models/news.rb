@@ -27,6 +27,15 @@ class News
     textual? ? url[7..-1] : nil
   end
 
+  def media_type
+    unless textual?
+      url_ext = url.split('.')[-1]
+      return :image if url.downcase =~ /\.(jpg|jpeg|gif|png|tiff|bmp|svg)$/
+      return :video if url =~ /(youtube|vimeo)/
+    end
+    nil
+  end
+
   def to_h
     {
       "id" => id,
@@ -43,7 +52,7 @@ class News
       "del" => del,
       "user_email" => user_email,
       "voted" => voted,
-      "type" => type
+      "type" => media_type
     }
   end
 
@@ -121,7 +130,6 @@ class News
     end
     fill_users_in_collection(news)
     fill_voted_info_in_collection(news, opts[:user_id]) if opts[:user_id]
-    fill_news_media_type(news)
     ids.is_a?(Array) && news || news.first
   end
 
@@ -240,8 +248,8 @@ class News
   def self.fill_voted_info_in_collection collection, user_id
     votes = $r.pipelined do
       collection.each do |n|
-        $r.zscore("news.up:#{n.id}",$user.id)
-        $r.zscore("news.down:#{n.id}",$user.id)
+        $r.zscore("news.up:#{n.id}", user_id)
+        $r.zscore("news.down:#{n.id}", user_id)
       end
     end
     collection.each_with_index do |n,i|
@@ -251,29 +259,5 @@ class News
         n.voted = :down
       end
     end
-  end
-
-  def self.media_types
-    [:image, :video]
-  end
-
-  def self.media_type url
-    media_types.each do |mt|
-      return mt if send("validate_#{mt}", url)
-    end
-    :url
-  end
-
-  def self.validate_image url
-    url.end_with? '.jpg', '.jpeg', '.png'
-  end
-
-  def self.validate_video url
-    url =~ /(youtube|vimeo)/
-  end
-
-  def self.fill_news_media_type news
-    [*news].each { |item| item.type = media_type(item.url) }
-    news
   end
 end

@@ -255,4 +255,108 @@ describe News do
       expect(subject.vote user, :down).to eq [0.0, nil]
     end
   end
+
+  describe '::find_id_by_url' do
+    context 'when a pairing between url and id exist' do
+      before { $r.set 'url:http://www.mikamai.com', '1' }
+
+      it 'returns the id of the given url' do
+        expect(News.find_id_by_url 'http://www.mikamai.com').to eq 1
+      end
+    end
+
+    it 'returns nil when no pairing between given url and id exist' do
+      expect(News.find_id_by_url 'http://www.mikamai.com').to be_nil
+    end
+  end
+
+  describe '::find' do
+    let!(:user) { User.find_or_create 'a', 'a@a.it' }
+    before do
+      2.times { News.create 'asd', 'text://asdasd', user, nil }
+    end
+
+    context 'when only one id is given' do
+      it 'returns a single News when the id is found' do
+        expect(News.find 1).to be_a News
+      end
+
+      it 'returns nil when the id is not found' do
+        expect(News.find 12).to be_nil
+      end
+    end
+
+    context 'when an array of ids is given' do
+      it 'returns an array' do
+        expect(News.find [1,2]).to be_a Array
+      end
+
+      it 'returns an array of the same length when all ids are found' do
+        expect(News.find([1,2]).length).to eq 2
+      end
+
+      it 'returns an array of different length when one or more ids cannot be found' do
+        expect(News.find([3,2]).length).to eq 1
+      end
+    end
+
+    context 'when the update_rank option is given' do
+      it 'calls #update_rank_if_needed on each returned news' do
+        received_calls = 0
+        allow_any_instance_of(News).to receive :update_rank_if_needed do
+          received_calls += 1
+        end
+        News.find([1,2,3], update_rank: true)
+        expect(received_calls).to eq 2
+      end
+    end
+
+    context 'when the update_rank option is not given' do
+      it 'does not call #update_rank_if_needed' do
+        expect_any_instance_of(News).to_not receive(:update_rank_if_needed)
+        News.find [1,2,3]
+      end
+    end
+
+    it 'fills user emails in returned objects' do
+      expect(News.find([1,2]).map(&:user_email).uniq).to eq [user.email]
+    end
+
+    context 'when the user_id option is given' do
+      it 'fills voted info in returned objects' do
+        expect(News.find([1,2], user_id: user.id).map(&:voted).uniq).to eq [:up]
+      end
+    end
+
+    context 'when the user_id option is given' do
+      it 'does not fill voted info in returned objects' do
+        expect(News.find([1,2]).map(&:voted).uniq).to eq [nil]
+      end
+    end
+  end
+
+  describe '#media_type' do
+    it 'returns nil when subject is textual' do
+      subject.url = "text://asdasdasda.jpg"
+      expect(subject.media_type).to be_nil
+    end
+
+    context 'returns image when' do
+      %w(jpg jpeg png bmp tiff gif svg).each do |ext|
+        it "url ends with .#{ext}" do
+          subject.url = "http://asdasdasd.#{ext}"
+          expect(subject.media_type).to eq :image
+        end
+      end
+    end
+
+    context 'returns video when' do
+      %w(youtube|vimeo).each do |url|
+        it "url contains #{url}" do
+          subject.url = "http://asdad#{url}asdsd"
+          expect(subject.media_type).to eq :video
+        end
+      end
+    end
+  end
 end
