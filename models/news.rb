@@ -1,12 +1,12 @@
 class News
   attr_accessor :id, :title, :url, :user_id, :ctime, :score, :rank, :up, :down,
                 :comments, :category_id, :del, :type
-  attr_writer :user_email
+  attr_writer :user_email, :category_code
   attr_accessor :voted
 
   def initialize attrs={}
     attrs.each do |key, value|
-      if %w(id user_id category_id ctime).include? key
+      if %w(id user_id category_id ctime comments).include? key
         value = value.to_i
       elsif %w(ctime rank score).include? key
         value = value.to_f
@@ -36,28 +36,13 @@ class News
     nil
   end
 
-  def to_h
-    {
-      "id" => id,
-      "title" => title,
-      "url" => url,
-      "user_id" => user_id,
-      "ctime" => ctime,
-      "score" => score,
-      "rank" => rank,
-      "up" => up,
-      "down" => down,
-      "comments" => comments,
-      "category_id" => category_id,
-      "del" => del,
-      "user_email" => user_email,
-      "voted" => voted,
-      "type" => media_type
-    }
-  end
-
   def user_email
     @user_email ||= User.find_email_by_id(user_id)
+  end
+
+  def category_code
+    return nil unless category_id
+    @category_code ||= Category.find_code_by_id category_id
   end
 
   def textual?
@@ -129,6 +114,7 @@ class News
       $r.pipelined { news.each &:update_rank_if_needed }
     end
     fill_users_in_collection(news)
+    fill_categories_in_collection(news)
     fill_voted_info_in_collection(news, opts[:user_id]) if opts[:user_id]
     ids.is_a?(Array) && news || news.first
   end
@@ -242,6 +228,15 @@ class News
     end
     collection.each_with_index do |n, i|
       n.user_email = usernames[i]
+    end
+  end
+
+  def self.fill_categories_in_collection collection
+    categories = $r.pipelined do
+      collection.each { |n| Category.find_code_by_id n.category_id }
+    end
+    collection.each_with_index do |n, i|
+      n.category_code = categories[i]
     end
   end
 

@@ -1197,31 +1197,25 @@ end
 # This function expects as input a news entry as obtained from
 # the get_news_by_id function.
 def news_to_rss(news)
-    domain = news.domain
-    news = {}.merge(news.to_h) # Copy the object so we can modify it as we wish.
-    news["ln_url"] = "#{SiteUrl}/news/#{news["id"]}"
-    news["url"] = news["ln_url"] if !domain
-
-    H.item {
-        H.title {
-            H.entities news["title"]
-        } + " " +
-        H.guid {
-            H.entities news["url"]
-        } + " " +
-        H.link {
-            H.entities news["url"]
-        } + " " +
-        H.description {
-            "<![CDATA[" +
-            H.a(:href=>news["ln_url"]) {
-                "Comments"
-            } + "]]>"
-        } + " " +
-        H.comments {
-            H.entities news["ln_url"]
-        }
-    }+"\n"
+  news_url = "#{SiteUrl}/news/#{news.id}"
+  link_url = news.domain && news.url || news_url
+  H.item {
+    H.title {
+      H.entities news.title
+    } + " " +
+    H.guid {
+      H.entities link_url
+    } + " " +
+    H.link {
+      H.entities link_url
+    } + " " +
+    H.description {
+      "<![CDATA[" +
+        H.a(href: news_url) { "Comments" } + "]]>"
+    } +
+    " " +
+    H.comments { H.entities news_url }
+  }+"\n"
 end
 
 
@@ -1230,75 +1224,55 @@ end
 # This function expects as input a news entry as obtained from
 # the get_news_by_id function.
 def news_to_html(news)
-    return H.article(:class => "deleted") {
-        "[deleted news]"
-    } if news.del
-    domain = news.domain
-    news = {}.merge(news.to_h) # Copy the object so we can modify it as we wish.
-    news["url"] = "/news/#{news["id"]}" if !domain
-    upclass = "uparrow"
-    downclass = "downarrow"
-    if news["voted"] == :up
-        upclass << " voted"
-        downclass << " disabled"
-    elsif news["voted"] == :down
-        downclass << " voted"
-        upclass << " disabled"
-    end
-    H.article("data-news-id" => news["id"], "data-type" => news['type']) {
-        H.a(:href => "#up", :class => upclass) {
-            "&#9650;"
-        }+" "+
-        H.h2 {
-            H.a(:href=>news["url"], :rel => "nofollow") {
-                H.entities news["title"]
-            }
-        }+" "+
-        H.address {
-            if domain
-                "at "+H.entities(domain)
-            else "" end +
-            if news['category_id'] && (category = Category.find(news['category_id']))
-              category_code = category.code
-              H.a(href: "/f/#{category_code}") { category_code }
-            else "" end +
-            if ($user and $user.id.to_i == news['user_id'].to_i and
-                news['ctime'].to_i > (Time.now.to_i - NewsEditTime))
-                " " + H.a(:href => "/editnews/#{news["id"]}") {
-                    "[edit]"
-                }
-            else "" end
-        }+
-        H.a(:href => "#down", :class =>  downclass) {
-            "&#9660;"
-        }+
-        H.p {
-            H.span(:class => :upvotes) { news["up"] } + " up and " +
-            H.span(:class => :downvotes) { news["down"] } + " down, posted by " +
-            H.username {
-                H.a(:href=>"/user/"+URI.encode(news["user_email"])) {
-                    H.entities news["user_email"]
-                }
-            }+" "+str_elapsed(news["ctime"].to_i)+" "+
-            H.a(:href => "/news/#{news["id"]}") {
-                comments_number = news["comments"].to_i
-                if comments_number != 0
-                    "#{news["comments"] + ' comment'}" + "#{'s' if comments_number>1}"
-                else
-                    "discuss"
-                end
-            }+
-            if $user and user_is_admin?($user)
-                " - "+H.a(:href => "/editnews/#{news["id"]}") { "edit" }+" - "+H.a(:href => "http://twitter.com/intent/tweet?url=#{SiteUrl}/news/#{news["id"]}&text="+URI.encode(news["title"])+" - ") { "tweet" }
-            else "" end
-        }+
-        if params and params[:debug] and $user and user_is_admin?($user)
-            "id: "+news["id"].to_s+" "+
-            "score: "+news["score"].to_s+" "+
-            "rank: "+compute_news_rank(news).to_s+" "+
-            "zset_rank: "+$r.zscore("news.top",news["id"]).to_s
+  return H.article(:class => "deleted") {"[deleted news]"} if news.del
+  link_url = news.domain && news.url || "/news/#{news.id}"
+  upclass = "uparrow"
+  downclass = "downarrow"
+  if news.voted == :up
+    upclass << " voted"
+    downclass << " disabled"
+  elsif news.voted == :down
+    downclass << " voted"
+    upclass << " disabled"
+  end
+  H.article("data-news-id" => news.id, "data-type" => news.media_type) {
+    H.a(href: "#up", class: upclass) { "&#9650;" } + " " +
+    H.h2 {
+      H.a(href: link_url, rel: "nofollow") { H.entities news.title }
+    } + " " +
+    H.address {
+      (news.domain ? "at #{H.entities news.domain}" : "") +
+      (news.category_code ? H.a(href: "/f/#{news.category_code}") { news.category_code } : "") +
+      if $user && $user.id == news.user_id && news.ctime > (Time.now.to_i - NewsEditTime)
+        " " + H.a(href: "/editnews/#{news.id}") { "[edit]" }
+      else "" end +
+      H.a(href: "#down", class: downclass) { "&#9660;" } +
+      H.p {
+        H.span(class: :upvotes) { news.up } + " up and " +
+        H.span(class: :downvotes) { news.down } + " down, posted by " +
+        H.username {
+          H.a(href: "/user/#{URI.encode(news.user_email)}") { H.entities news.user_email }
+        } + " " +
+        str_elapsed(news.ctime.to_i) + " " +
+        H.a(href: "/news/#{news.id}") {
+          if news.comments != 0
+            "#{news.comments + ' comment'}" + "#{'s' if news.comments > 1}"
+          else
+            "discuss"
+          end
+        } +
+        if $user && user_is_admin?($user)
+          " - " + H.a(href: "/editnews/#{news.id}") { "edit" } + " - " + H.a(href: "http://twitter.com/intent/tweet?url=#{SiteUrl}/news/#{news.id}&text=#{URI.encode(news.title)} - ") { "tweet" }
         else "" end
-    }+"\n"
+      }
+    } +
+    if params && params[:debug] && $user && user_is_admin?($user)
+      "id: #{news.id} " +
+      "score: #{news.score} " +
+      "rank: #{compute_news_rank(news)} " +
+      "zset_rank: #{$r.zscore("news.top", news.id)} "
+    else "" end
+  } + "\n"
 end
 
 # Rerturns the html for a list of news

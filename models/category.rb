@@ -26,6 +26,10 @@ class Category
     values.any? ? new(values) : nil
   end
 
+  def self.find_code_by_id id
+    $r.hget "category:#{id}", "code"
+  end
+
   def self.create code
     id = $r.incr "categories.count"
     $r.hmset "category:#{id}",

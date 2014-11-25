@@ -319,7 +319,16 @@ describe News do
     end
 
     it 'fills user emails in returned objects' do
-      expect(News.find([1,2]).map(&:user_email).uniq).to eq [user.email]
+      news = News.find([1,2])
+      expect_any_instance_of(User).to_not receive(:find_email_by_id)
+      expect(news.map(&:user_email).uniq).to eq [user.email]
+    end
+
+    it 'fills categories in returned objects' do
+      new_news = News.create 'foo', 'text://asdasd', user, Category.create('asd')
+      news = News.find([1,2,3])
+      expect_any_instance_of(Category).to_not receive(:find_code_by_id)
+      expect(news.map(&:category_code).uniq).to eq [nil, 'asd']
     end
 
     context 'when the user_id option is given' do
